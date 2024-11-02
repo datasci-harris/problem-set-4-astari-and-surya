@@ -726,3 +726,12 @@ The “first-pass” method for identifying hospital closures in a dataset can h
 To improve the accuracy of identifying hospital closures, several strategies can be employed. Cross-verifying the dataset with multiple reliable sources, such as state health department records and hospital associations, can confirm closure statuses. Real-time data integration ensures that information remains current, while advanced geospatial analysis enhances location accuracy. Automated systems can gather relevant news reports and public announcements for additional verification, and community feedback can provide firsthand insights into facility operations. Finally, analyzing patient admission and discharge trends can help indicate actual closures or reductions in service.
 
 Partner 2 (Surya):
+The current method of identifying ZIP codes affected by hospital closures reflects changes in access to some extent but has limitations. The method accurately marks ZIP codes with closures, providing an overview of access shifts. However, it can misrepresent the true impact if hospitals are merged or relocated, as these are often mistakenly recorded as closures. Additionally, using ZIP code centroids for measuring distances can overlook actual residential areas and lead to misleading conclusions about accessibility, especially in larger or irregularly shaped ZIP codes.
+
+To improve this measure, several strategies could be implemented. Cross-referencing data from multiple sources like state health department records, healthcare registries, and local news can validate true closures and minimize errors due to mergers or relocations. Using geocoordinates or exact hospital addresses instead of centroids would enhance the accuracy of distance calculations and better reflect access for residents. Incorporating historical trend analysis could differentiate between permanent closures and temporary changes, such as service suspensions or renovations. Additionally, gathering input from community surveys and government announcements could provide deeper insights into local healthcare accessibility and ensure that the analysis better reflects reality.
+
+
+
+
+
+
