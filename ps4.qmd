@@ -571,8 +571,158 @@ plt.show()
 ## V Effects of closures on access in Texas (15 pts)
 
 1. 
+```{python}
+# Filter to include only Texas ZIP codes (assuming Texas prefixes are already defined)
+texas_prefixes = ('733', '75', '76', '77', '78', '79')
+corrected_closures['ZIP_CD'] = corrected_closures['ZIP_CD'].astype(str)
+texas_closures = corrected_closures[corrected_closures['ZIP_CD'].str.startswith(texas_prefixes)]
+
+# Create a table showing how many closures each ZIP code experienced from 2016 to 2019
+zip_closure_counts = texas_closures.groupby('ZIP_CD').size().reset_index(name='closure_count')
+
+# Create a summary table showing the number of ZIP codes versus the number of closures
+zip_closure_summary = zip_closure_counts.groupby('closure_count').size().reset_index(name='num_zip_codes')
+
+# Rename columns for clarity
+zip_closure_summary.columns = ['Number of Closures', 'Number of ZIP Codes']
+
+# Display the summary table
+print("Table: Number of ZIP codes vs. Number of Closures")
+print(zip_closure_summary)
+
+# Display the first few rows of the summary for reference
+zip_closure_summary.head()
+```
+
+Interpretation: The table provided shows the distribution of ZIP codes in Texas based on the number of hospital closures they experienced between 2016 and 2019. Out of the total ZIP codes, 67 ZIP codes had no closures, 5 ZIP codes experienced 1 closure, and 1 ZIP code experienced 2 closures. This indicates that hospital closures during this period were relatively rare, affecting a small number of ZIP codes in the state, with most ZIP codes not experiencing any closures at all.
+
 2. 
+```{python}
+import matplotlib.colors as mcolors
+
+# Ensure ZIP_CD in texas_closures is clean before converting to string
+texas_closures['ZIP_CD'] = pd.to_numeric(texas_closures['ZIP_CD'], errors='coerce')
+texas_closures = texas_closures.dropna(subset=['ZIP_CD'])
+texas_closures['ZIP_CD'] = texas_closures['ZIP_CD'].astype(int).astype(str)
+
+# Ensure ZCTA5 in texas_zip_shapefile is also a string for merging
+texas_zip_shapefile['ZCTA5'] = texas_zip_shapefile['ZCTA5'].astype(str)
+
+# Count the number of closures per ZIP code
+closure_counts = texas_closures.groupby('ZIP_CD').size().reset_index(name='Number of Closures')
+
+# Merge the Texas ZIP code shapefile with the closure counts
+texas_zip_closures_map = texas_zip_shapefile.merge(
+    closure_counts,
+    left_on='ZCTA5',
+    right_on='ZIP_CD',
+    how='left'
+)
+
+# Fill NaN values with 0 for ZIP codes with no closures
+texas_zip_closures_map['Number of Closures'] = texas_zip_closures_map['Number of Closures'].fillna(0)
+
+# Define a colormap where 0 closures are white, and other numbers are mapped to distinct colors
+cmap = mcolors.ListedColormap(['white', 'red', 'blue', 'green', 'orange'])
+boundaries = [0, 1, 2, 3, 4, 5]
+norm = mcolors.BoundaryNorm(boundaries, cmap.N)
+
+# Plot the choropleth map showing all ZIP codes, including those with 0 closures in white
+fig, ax = plt.subplots(1, 1, figsize=(15, 15))
+texas_zip_closures_map.boundary.plot(ax=ax, linewidth=0.5, color='black')  # Plot ZIP code boundaries
+texas_zip_closures_map.plot(
+    column='Number of Closures',
+    cmap=cmap,  # Use the custom colormap
+    norm=norm,  # Use the custom normalization
+    linewidth=0.8,
+    ax=ax,
+    edgecolor='0.8',
+    legend=True,
+    legend_kwds={'label': "Number of Closures", 'orientation': "vertical"}
+)
+plt.title('Texas ZIP Codes by Number of Hospital Closures (2016-2019)', fontsize=16)
+ax.axis('off')
+
+# Display the plot
+plt.show()
+```
+
+Interpretation: The choropleth map shows the distribution of Texas ZIP codes that were directly affected by hospital closures between 2016 and 2019. ZIP codes shaded in colors other than white indicate areas with closures, with the color intensity representing the number of closures (e.g., red for 1 closure, blue for 2 closures, etc.). According to the map, a total of 6 ZIP codes were directly affected: 5 ZIP codes experienced 1 closure, and 1 ZIP code experienced 2 closures. Most ZIP codes remain unaffected, indicated by the white color. This visual highlights that while some ZIP codes faced closures, the impact was limited to a relatively small portion of the state.
+
 3. 
+```{python}
+import matplotlib.patches as mpatches
+
+# Ensure the CRS is set correctly for distance calculations in meters
+texas_zip_shapefile = texas_zip_shapefile.to_crs(epsg=3081)  # CRS in meters
+texas_zip_closures_map = texas_zip_closures_map.to_crs(epsg=3081)
+
+# Convert distance from miles to meters
+mile_to_meter = 1609.34
+buffer_dist = 10 * mile_to_meter  # 10 miles in meters
+
+# Step 1: Create a GeoDataFrame of directly affected ZIP codes
+direct_affected = texas_zip_closures_map[
+    texas_zip_closures_map['Number of Closures'] > 0
+]
+
+# Step 2: Create a 10-mile buffer around directly affected ZIP codes
+direct_affected = direct_affected.set_geometry('geometry')
+direct_affected_buf = direct_affected.copy()
+direct_affected_buf['geometry'] = direct_affected_buf.geometry.buffer(buffer_dist)
+
+# Step 3: Merge buffers into a single geometry to avoid overcounting
+buffer_union = direct_affected_buf['geometry'].unary_union
+
+# Create a GeoDataFrame with the buffer for visualization or further analysis
+buffer_gdf = gpd.GeoDataFrame(geometry=[buffer_union], crs=texas_zip_shapefile.crs)
+
+# Step 4: Identify ZIP codes that intersect with the 10-mile buffer (indirectly affected)
+indirect_affected = texas_zip_shapefile[
+    texas_zip_shapefile.geometry.intersects(buffer_union)
+]
+
+# Step 5: Remove any directly affected ZIP codes from the indirectly affected ones
+indirect_affected = indirect_affected[
+    ~indirect_affected['ZCTA5'].isin(direct_affected['ZCTA5'])
+]
+
+# Count the unique number of indirectly affected ZIP codes
+num_indirect_affected = indirect_affected['ZCTA5'].nunique()
+print(f"Number of indirectly affected ZIP codes in Texas: {num_indirect_affected}")
+```
+
+Interpretation: The analysis identifies 882 ZIP codes in Texas as indirectly affected by hospital closures between 2016 and 2019, defined as being within a 10-mile radius of directly affected ZIP codes. This was determined by creating a buffer around directly affected ZIP codes (those with at least one hospital closure) and performing a spatial join with the entire Texas ZIP code dataset. The result indicates that while the number of directly impacted ZIP codes is small, the potential reach of their closures is substantial, affecting a large number of nearby areas and potentially impacting access to healthcare for residents in those ZIP codes.
+
 4. 
+```{python}
+# Plot the results
+fig, ax = plt.subplots(1, 1, figsize=(15, 15))
+texas_zip_shapefile.plot(ax=ax, color='lightgray', edgecolor='black', label='Not Affected')
+direct_affected.plot(ax=ax, color='red', label='Directly Affected')
+buffer_gdf.plot(ax=ax, color='lightblue', alpha=0.5, label='10-Mile Buffer')
+indirect_affected.plot(ax=ax, color='green', label='Indirectly Affected')
+
+# Create a custom legend
+legend_labels = [
+    mpatches.Patch(color='lightgray', label='Not Affected'),
+    mpatches.Patch(color='green', label='Indirectly Affected'),
+    mpatches.Patch(color='red', label='Directly Affected'),
+    mpatches.Patch(color='lightblue', alpha=0.5, label='10-Mile Buffer')
+]
+
+# Add the custom legend to the plot
+plt.legend(handles=legend_labels, loc='upper right', title='Impact Category')
+plt.title("Directly and Indirectly Affected ZIP Codes in Texas (2016-2019)")
+plt.show()
+```
+
+Interpretation: The choropleth map provides a visual representation of Texas ZIP codes categorized by their impact from hospital closures between 2016 and 2019. ZIP codes highlighted in red indicate areas directly affected by at least one hospital closure, while green shows ZIP codes indirectly affected—those located within a 10-mile radius of directly affected areas but without closures themselves. The light blue areas represent the 10-mile buffer zones around directly affected ZIP codes, demonstrating the reach of their influence. Light gray represents ZIP codes that were not affected by closures or the 10-mile buffer zone. The map shows that while directly affected ZIP codes are fewer in number, the indirectly affected ZIP codes spread significantly, highlighting the potential ripple effect of hospital closures on surrounding communities.
 
 ## VI Reflecting on the exercise (10 pts) 
+Partner 1 (Astari):
+The “first-pass” method for identifying hospital closures in a dataset can have significant limitations that lead to inaccuracies. Issues such as data completeness and accuracy can result in misidentified closures if the information is outdated or incomplete, and temporary closures or name changes may be missed. Ambiguities in defining what constitutes a closure, along with geocoding errors, can misclassify operational changes like mergers or relocations as closures. Additionally, using outdated records may misrepresent the current operational status of hospitals, and facilities offering limited services may not be correctly categorized.
+
+To improve the accuracy of identifying hospital closures, several strategies can be employed. Cross-verifying the dataset with multiple reliable sources, such as state health department records and hospital associations, can confirm closure statuses. Real-time data integration ensures that information remains current, while advanced geospatial analysis enhances location accuracy. Automated systems can gather relevant news reports and public announcements for additional verification, and community feedback can provide firsthand insights into facility operations. Finally, analyzing patient admission and discharge trends can help indicate actual closures or reductions in service.
+
+Partner 2 (Surya):
