@@ -1,8 +1,8 @@
 P.QWB.POSQ.OTHER.LAYOUT.MAR23.pdf
 *.csv
-.venv
-.dbf
-.prj
-.shp
-.shx
-.xml
+*.venv
+*.dbf
+*.prj
+*.shp
+*.shx
+*.xml
