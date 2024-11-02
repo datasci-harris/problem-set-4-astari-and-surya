@@ -65,8 +65,7 @@ a.
 import pandas as pd
 
 # Load the dataset
-path_2016 = 'C:/Users/raiha/Documents/GitHub/problem-set-4-astari-and-surya/pos2016.csv'
-pos2016 = pd.read_csv(path_2016, encoding='ISO-8859-1')
+pos2016 = pd.read_csv('pos2016.csv', encoding='ISO-8859-1')
 ```
 
 ```{python}
@@ -91,8 +90,7 @@ Interpretation: Based on the CMS Dataset from Provider Category Subtype Code = 1
 2017Q4 data
 ```{python}
 # Load the 2017Q4 data
-path_2017 = 'C:/Users/raiha/Documents/GitHub/problem-set-4-astari-and-surya/pos2017.csv'
-pos2017 = pd.read_csv(path_2017, encoding='ISO-8859-1')
+pos2017 = pd.read_csv('pos2017.csv', encoding='ISO-8859-1')
 
 # Filter the dataset
 filtered_2017 = pos2017[
@@ -110,8 +108,7 @@ print(f"\nTotal number of records: {len(filtered_2017)}")
 2018Q4 data
 ```{python}
 # Load the 2018 data with a specified encoding
-path_2018 = 'C:/Users/raiha/Documents/GitHub/problem-set-4-astari-and-surya/pos2018.csv'
-pos2018 = pd.read_csv(path_2018, encoding='ISO-8859-1')
+pos2018 = pd.read_csv('pos2018.csv', encoding='ISO-8859-1')
 
 # Filter the dataset
 filtered_2018 = pos2018[
@@ -130,8 +127,7 @@ print(f"\nTotal number of records: {len(filtered_2018)}")
 2019Q4 data
 ```{python}
 # Load the 2019 data
-path_2019 = 'C:/Users/raiha/Documents/GitHub/problem-set-4-astari-and-surya/pos2019.csv'
-pos2019 = pd.read_csv(path_2019, encoding='ISO-8859-1')
+pos2019 = pd.read_csv('pos2019.csv', encoding='ISO-8859-1')
 
 # Filter the dataset
 filtered_2019 = pos2019[
@@ -440,7 +436,7 @@ act_hos_2016["ZIP_CD"] = act_hos_2016["ZIP_CD"].astype(int)
 zips_texas_borderstates_centroids["ZCTA5"] = zips_texas_borderstates_centroids["ZCTA5"].astype(int)
 
 # Inner merge
-zips_withhospital_centroids = zips_withhospital_centroids.merge(
+zips_withhospital_centroids = zips_texas_borderstates_centroids.merge(
     act_hos_2016["ZIP_CD"],
     left_on = "ZCTA5",
     right_on = "ZIP_CD",
