@@ -41,7 +41,7 @@ Please refer to the minilesson on code style
 
 **Important:** Repositories are for tracking code. **Do not commit the data or shapefiles to your repo.** The best way to do this is with `.gitignore`, which we have covered in class. If you do accidentally commit the data, Github has a [guide](https://docs.github.com/en/repositories/working-with-files/managing-large-files/about-large-files-on-github#removing-files-from-a-repositorys-history). The best course of action depends on whether you have pushed yet. This also means that both partners will have to download the initial raw data and any data cleaning code will need to be re-run on both partners' computers. 
 
-## Download and explore the Provider of Services (POS) file (10 pts)
+## I Download and explore the Provider of Services (POS) file (10 pts)
 
 1. List of variables pulled from the dataset:
 
@@ -325,7 +325,7 @@ print(f"{len(corrected_closures)}")
 corrected_closures.sort_values(by="FAC_NAME")[["FAC_NAME", "ZIP_CD", "TRMNTN_YR"]].head(10)
 ```
 
-## Download Census zip code shapefile (10 pt) 
+## III Download Census zip code shapefile (10 pt) 
 
 1. 
     a. 
@@ -381,24 +381,189 @@ texas_hospitals_map.sort_values("hospital_count", ascending=False).head()[["ZCTA
 
 Plot interpretation: The map shows that most Texas areas based on the ZIP codes have a low number of hospitals, which can be seen from the majority of lighter shades in the choropleth. Only a few areas are having a higher number of hospitals (darker shades), such as zip code 77030 (eastern Houston, Texas), and 76104 (Fort Worth, Texas). The concentration of hospitals in specific ZIP codes highlights potential disparities in healthcare access, with more rural areas potentially facing challenges in reaching medical facilities compared to urban centers.  
 
-## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
+## IV Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
 1. 
-2. 
+```{python}
+# Create centroid GeoDataFrame of zip_shapefile
+zips_all_centroids=zip_shapefile[["ZCTA5"]].copy()
+zips_all_centroids["centroid"]=zip_shapefile.geometry.centroid
+zips_all_centroids = zips_all_centroids.set_geometry("centroid")
+zips_all_centroids.info()
+```
+Dimension: 33120 points, 3 columns
+
+Each column's meaning:
+1st column: the index of all points/object in that GeoDataFrame
+2nd column: the zip code of each point
+3rd column: the well known text that describe the object type (point, linestring, polygon, etc) and describe the coordinate/location of the object on the earth surface, e.g.: POINT (-72.64 42.21) 
+
+2. 2 subsets of nationwide zip code GeoDataFrame
+```{python}
+# Texas zip code centroids
+zips_texas_centroids = texas_zip_shapefile.copy()
+zips_texas_centroids["centroid"] = zips_texas_centroids.centroid 
+zips_texas_centroids= zips_texas_centroids.set_geometry("centroid")
+print(f"N of unique Texas zip codes: {len(zips_texas_centroids["ZCTA5"].unique())}")
+```
+N of unique Texas zip codes: 1935
+
+```{python}
+# Texas's bordering states: OK (730, 731, 734-739, 74), 
+# AR (716-729), LA (700-714), NM (870-885)
+# Texas or a bordering state zip code centroids
+oklahoma_prefixes = ('730', '731', '734', '735', '736', '737', '738', '739', '74')
+arkansas_prefixes = tuple(str(i) for i in range(716, 730))
+louisiana_prefixes = tuple(str(i) for i in range(700, 715))
+new_mexico_prefixes = tuple(str(i) for i in range(870, 886))
+
+all_prefixes = texas_prefixes + oklahoma_prefixes + arkansas_prefixes + louisiana_prefixes + new_mexico_prefixes
+
+# Filter the nationwide ZIP code shapefile for Texas and its bordering states using prefixes
+zips_texas_borderstates_centroids = zip_shapefile[
+    zip_shapefile['ZCTA5'].astype(str).str.startswith(all_prefixes)
+].copy()
+
+zips_texas_borderstates_centroids["centroid"] = zips_texas_borderstates_centroids.centroid 
+zips_texas_borderstates_centroids= zips_texas_borderstates_centroids.set_geometry("centroid")
+print(f"N of unique Texas+ zip codes: {len(zips_texas_borderstates_centroids["ZCTA5"].unique())}")
+```
+N of unique Texas and bordering states zip codes: 4057
+
 3. 
-4. 
+```{python}
+# Retain rows with null ZIP codes with fill NA
+act_hos_2016["ZIP_CD"] = act_hos_2016["ZIP_CD"].fillna(0).astype(int)
+
+# Ensure the ZIP code columns are of the same data type for merging
+act_hos_2016["ZIP_CD"] = act_hos_2016["ZIP_CD"].astype(int)
+zips_texas_borderstates_centroids["ZCTA5"] = zips_texas_borderstates_centroids["ZCTA5"].astype(int)
+
+# Inner merge
+zips_withhospital_centroids = zips_withhospital_centroids.merge(
+    act_hos_2016["ZIP_CD"],
+    left_on = "ZCTA5",
+    right_on = "ZIP_CD",
+    how = "inner").drop_duplicates(
+        subset="ZIP_CD")
+
+zips_withhospital_centroids.info()
+```
+Merge used: An **inner merge** was used to only keep matching rows between `zips_texas_borderstates_centroids` and `act_hos_2016`, ensuring that `zips_withhospital_centroids` contains only ZIP codes that have at least one hospital while maintaining the non-redundant state of `zips_texas_borderstates_centroids`.
+
+Variables used for merging: The merge was performed using the `ZCTA5` column (ZIP code in the `zips_texas_borderstates_centroids` GeoDataFrame) and the `ZIP_CD` column (ZIP code in the `act_hos_2016` DataFrame).
+
+4. For each zip code in `zips_texas_centroids`, calculate the distance to the
+nearest zip code with at least one hospital in `zips_withhospital_centroids`
     a.
+```{python}
+# Subset 10 rows of zips_texas_centroids
+zips_texas_centroids_10 = zips_texas_centroids.head(10)
+
+# Measure time for the subset distance calculation
+import time
+start_time_10 = time.time()
+
+# Perform a spatial join using sjoin_nearest with the distance calculated
+zips_texas_centroids_10_with_distance = gpd.sjoin_nearest(
+    zips_texas_centroids_10,
+    zips_withhospital_centroids,
+    how="left",
+    distance_col="nearest_zipcode_withhospital_distance"
+)
+
+end_time_10 = time.time()
+time_taken_10 = end_time_10 - start_time_10
+
+print(f"Time taken for calculating distances for 10 ZIP codes: {time_taken_10:.2f} seconds")
+```
+Time taken for calculating distances for 10 ZIP codes: 0.01 seconds
+
+```{python}
+# Estimate the time for the full dataset based on the subset time
+n_total_zips = len(zips_texas_centroids)
+estimated_full_time = (time_taken_10 / len(zips_texas_centroids_10)) * n_total_zips
+print(f"Estimated time for the full dataset: {estimated_full_time:.2f} seconds")
+```
+Estimated time for the full dataset: 1.57 seconds
+
     b.
+```{python}
+# Measure time for the full dataset
+start_time_full = time.time()
+
+# Perform the spatial join for the entire dataset
+zips_texas_centroids_with_distance = gpd.sjoin_nearest(
+    zips_texas_centroids,
+    zips_withhospital_centroids,
+    how="left",
+    distance_col="nearest_zipcode_withhospital_distance"
+)
+
+end_time_full = time.time()
+full_time_taken = end_time_full - start_time_full
+
+# Display the time taken for the full calculation
+print(f"Time taken for the full calculation: {full_time_taken:.2f} seconds")
+```
+Time taken for the full calculation: 0.02 seconds
+The actual time taken for the full calculation was 0.02 seconds, much faster than the estimated 1.57 seconds. This indicates that `gpd.sjoin_nearest()` is highly efficient for spatial join operations. The results show that the method handles large spatial datasets quickly and effectively.
+
+    c. Inside the `.prj` file:
+`GEOGCS["GCS_North_American_1983",DATUM["D_North_American_1983",SPHEROID["GRS_1980",6378137,298.257222101]],PRIMEM["Greenwich",0],UNIT["Degree",0.017453292519943295]]`
+
+The `.prj` file content shows that the coordinate reference system (CRS) used is `GEOGCS["GCS_North_American_1983"]`, which means it is based on the North American Datum 1983 (NAD83). The unit specified in the CRS is `UNIT["Degree",0.017453292519943295]`, indicating that the units for measurement are in degrees. Degrees are angular units used in geographic coordinate systems, representing distances on a spherical surface (e.g., latitude and longitude).
+
+**One degree of latitude is approximately equivalent to 69 miles**, as this distance remains consistent across the globe. However, the distance between degrees of longitude varies with latitude, decreasing toward the poles, which can introduce significant measurement errors when converting directly to miles.
+
+For more accurate distance calculations, it's best to reproject the data into a CRS designed for distance measurements in meters, such as EPSG:3081 (NAD83 / Texas State Mapping System) for Texas. Once reprojected, distances measured in meters can be converted to miles by dividing by 1,609.34. This method ensures accurate spatial measurements tailored to specific locations.
+
 5. 
-    a.
-    b.
+```{python}
+# Ensure the GeoDataFrames are using a projected CRS for accurate distance calculation
+zips_texas_centroids = zips_texas_centroids.to_crs(epsg=3081)
+zips_withhospital_centroids = zips_withhospital_centroids.to_crs(epsg=3081)
+
+# Perform a spatial join to find the nearest hospital ZIP code and calculate distances
+zips_texas_centroids_with_distance = gpd.sjoin_nearest(
+    zips_texas_centroids,
+    zips_withhospital_centroids,
+    how="left",
+    distance_col="nearest_hospital_distance_meters"
+)
+```
+    a. 
+```{python}
+zips_texas_centroids_with_distance.head()
+```
+    The distance is still in meter after we change the projection to EPSG:3081. Previously, the distance was in degree before we change the projection.
+    b. 
+```{python}
+# Convert distance from meters to miles
+zips_texas_centroids_with_distance["nearest_hospital_distance_miles"] = (
+    zips_texas_centroids_with_distance["nearest_hospital_distance_meters"] / 1609.34
+)
+```
     c.
+```{python}
+fig, ax = plt.subplots(1, 1, figsize=(15, 15))
+zips_texas_centroids_with_distance.plot(
+    column="nearest_hospital_distance_miles",
+    cmap="OrRd",
+    linewidth=0.8,
+    ax=ax,
+    edgecolor="0.8",
+    legend=True
+)
+plt.title("Distance to the Nearest Hospital for Each ZIP Code in Texas (Miles)")
+plt.show()
+```
     
-## Effects of closures on access in Texas (15 pts)
+## V Effects of closures on access in Texas (15 pts)
 
 1. 
 2. 
 3. 
 4. 
 
-## Reflecting on the exercise (10 pts) 
+## VI Reflecting on the exercise (10 pts) 
