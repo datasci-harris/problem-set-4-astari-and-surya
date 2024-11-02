@@ -385,6 +385,7 @@ Plot interpretation: The map shows that most Texas areas based on the ZIP codes 
 zips_all_centroids=zip_shapefile[["ZCTA5"]].copy()
 zips_all_centroids["centroid"]=zip_shapefile.geometry.centroid
 zips_all_centroids = zips_all_centroids.set_geometry("centroid")
+
 zips_all_centroids.info()
 ```
 Dimension: 33120 points, 3 columns
@@ -453,6 +454,10 @@ Variables used for merging: The merge was performed using the `ZCTA5` column (ZI
 nearest zip code with at least one hospital in `zips_withhospital_centroids`
     a.
 ```{python}
+# Ensure the GeoDataFrames are using a projected CRS for accurate distance calculation
+zips_texas_centroids = zips_texas_centroids.to_crs(epsg=3081)
+zips_withhospital_centroids = zips_withhospital_centroids.to_crs(epsg=3081)
+
 # Subset 10 rows of zips_texas_centroids
 zips_texas_centroids_10 = zips_texas_centroids.head(10)
 
@@ -512,7 +517,7 @@ The `.prj` file content shows that the coordinate reference system (CRS) used is
 
 **One degree of latitude is approximately equivalent to 69 miles**, as this distance remains consistent across the globe. However, the distance between degrees of longitude varies with latitude, decreasing toward the poles, which can introduce significant measurement errors when converting directly to miles.
 
-For more accurate distance calculations, it's best to reproject the data into a CRS designed for distance measurements in meters, such as EPSG:3081 (NAD83 / Texas State Mapping System) for Texas. Once reprojected, distances measured in meters can be converted to miles by dividing by 1,609.34. This method ensures accurate spatial measurements tailored to specific locations.
+For more accurate distance calculations, it's best to reproject the data into a CRS designed for distance measurements in meters, such as EPSG:3081 (NAD83 / Texas State Mapping System) for Texas. Once reprojected,**distances measured in meters can be converted to miles by dividing by 1,609.34**. This method ensures accurate spatial measurements tailored to specific locations.
 
 5. 
 ```{python}
@@ -533,13 +538,21 @@ zips_texas_centroids_with_distance = gpd.sjoin_nearest(
 zips_texas_centroids_with_distance.head()
 ```
     The distance is still in meter after we change the projection to EPSG:3081. Previously, the distance was in degree before we change the projection.
+    
     b. 
 ```{python}
 # Convert distance from meters to miles
 zips_texas_centroids_with_distance["nearest_hospital_distance_miles"] = (
     zips_texas_centroids_with_distance["nearest_hospital_distance_meters"] / 1609.34
 )
+
+# Show some rows of the distances in descending order
+zips_texas_centroids_with_distance.sort_values(
+    "nearest_hospital_distance_miles", ascending=False
+)[["ZCTA5_left", "nearest_hospital_distance_miles"]].head()
 ```
+The furthest distance of a ZIP code to the nearest ZIP code with a hospital is 77.859 miles, highlighting the potential challenges faced by rural areas in Texas when accessing healthcare. However, since we calculate distances between centroids of ZIP codes, this method may overlook the actual distance from residential or inhabited areas within a ZIP code to a nearby hospital, which could be closer to the ZIP code's border.
+
     c.
 ```{python}
 fig, ax = plt.subplots(1, 1, figsize=(15, 15))
