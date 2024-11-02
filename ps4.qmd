@@ -229,14 +229,98 @@ unique_cms_chart.show()
     b. The fact that each hospital (PRVDR_NUM) appears only once per year in the dataset indicates that the data is well-structured, with no duplicate records for the same hospital. This consistency simplifies analyses, as there is no need to deduplicate when counting short-term hospitals. The identical plots for total observations and unique hospitals confirm that the filtered data accurately reflects the distinct count of short-term hospitals for each year. Overall, this means there are no overlaps or repeated entries in the dataset, ensuring reliable and straightforward comparisons year over year.
 
 
-## Identify hospital closures in POS file (15 pts) (*)
+## II Identify hospital closures in POS file (15 pts) (*)
 
-1. 
-2. 
-3. 
-    a.
-    b.
-    c.
+1. List of all active 2016 hospitals that were suspected to have closed by 2019: facility name, zip, and year of suspected closure
+```{python}
+# Filtering active hospitals for each year
+act_hos_2016 = pos2016[(pos2016["PGM_TRMNTN_CD"] == 0) & (pos2016["PRVDR_CTGRY_CD"] == 1)]
+act_hos_2017 = pos2017[(pos2017["PGM_TRMNTN_CD"] == 0) & (pos2017["PRVDR_CTGRY_CD"] == 1)]
+act_hos_2018 = pos2018[(pos2018["PGM_TRMNTN_CD"] == 0) & (pos2018["PRVDR_CTGRY_CD"] == 1)]
+act_hos_2019 = pos2019[(pos2019["PGM_TRMNTN_CD"] == 0) & (pos2019["PRVDR_CTGRY_CD"] == 1)]
+
+# Create a copy of the DataFrame to avoid SettingWithCopyWarning
+act_hos_2016_copy = act_hos_2016.copy()
+
+# Adding termination year by checking presence in subsequent years using if-else
+termination_years = []
+for _, row in act_hos_2016_copy.iterrows():
+    if not (act_hos_2017["FAC_NAME"] == row["FAC_NAME"]).any():
+        termination_years.append(2017)
+    elif not (act_hos_2018["FAC_NAME"] == row["FAC_NAME"]).any():
+        termination_years.append(2018)
+    elif not (act_hos_2019["FAC_NAME"] == row["FAC_NAME"]).any():
+        termination_years.append(2019)
+    else:
+        termination_years.append(None)
+
+# Assign the termination year using .loc to avoid warnings
+act_hos_2016_copy.loc[:, "TRMNTN_YR"] = termination_years
+
+# Filtering only hospitals that have a termination year set (suspected closures)
+suspected_closures = act_hos_2016_copy[act_hos_2016_copy["TRMNTN_YR"].notnull()]
+
+# Selecting relevant columns for the result
+result = suspected_closures[["FAC_NAME", "ZIP_CD", "TRMNTN_YR"]]
+
+# Displaying the number of suspected closed hospitals
+result.head()
+print(f"Total 2016 hospitals suspected to have closed by 2019: {len(result)}")
+```
+2.  Sort this list of hospitals by name and report the names and year of
+suspected closure for the first 10 rows
+```{python}
+result.sort_values(by="FAC_NAME").head(10)[["FAC_NAME", "TRMNTN_YR"]]
+```
+3.  However, not all suspected hospital closures are true closures. For example, in the case of a merger, a CMS certification number will be appear to be “terminated,” but then the hospital re-appear under a similar name/address with a new CMS certification number in the next year. As a first pass to address this, remove any suspected hospital closures that are in zip codes where the number of active hospitals does not decrease in the year after the suspected closure.
+```{python}
+# Count the number of active hospitals in each ZIP code for each year
+zip_counts_2016 = act_hos_2016.groupby("ZIP_CD").size().reset_index(name="count_2016")
+zip_counts_2017 = act_hos_2017.groupby("ZIP_CD").size().reset_index(name="count_2017")
+zip_counts_2018 = act_hos_2018.groupby("ZIP_CD").size().reset_index(name="count_2018")
+zip_counts_2019 = act_hos_2019.groupby("ZIP_CD").size().reset_index(name="count_2019")
+
+# Merge the ZIP code counts to compare years
+zip_counts = zip_counts_2016.merge(zip_counts_2017, on="ZIP_CD", how="left") \
+                             .merge(zip_counts_2018, on="ZIP_CD", how="left") \
+                             .merge(zip_counts_2019, on="ZIP_CD", how="left")
+
+# Mark suspected closures that occur in ZIP codes where the number of active hospitals does not decrease
+potential_mergers = []
+for _, row in suspected_closures.iterrows():
+    zip_code = row["ZIP_CD"]
+    year = row["TRMNTN_YR"]
+    
+    # Check the number of active hospitals in the year of termination and the following year
+    if year == 2017:
+        count_in_2017 = zip_counts.loc[zip_counts["ZIP_CD"] == zip_code, "count_2017"].values[0]
+        count_in_2018 = zip_counts.loc[zip_counts["ZIP_CD"] == zip_code, "count_2018"].values[0]
+        if count_in_2017 <= count_in_2018:
+            potential_mergers.append(row["FAC_NAME"])
+    elif year == 2018:
+        count_in_2018 = zip_counts.loc[zip_counts["ZIP_CD"] == zip_code, "count_2018"].values[0]
+        count_in_2019 = zip_counts.loc[zip_counts["ZIP_CD"] == zip_code, "count_2019"].values[0]
+        if count_in_2018 <= count_in_2019:
+            potential_mergers.append(row["FAC_NAME"])
+
+# Filter out potential mergers from the suspected closures
+corrected_closures = suspected_closures[~suspected_closures["FAC_NAME"].isin(potential_mergers)]
+```
+    a. Among the suspected closures, how many hospitals fit this definition of potentially being a merger/acquisition?
+```{python}
+# Answer
+print(f"{len(potential_mergers)}")
+```
+    b. After correcting for this, how many hospitals do you have left?
+```{python}
+# Answer
+print(f"{len(corrected_closures)}")
+```
+    c. Sort this list of corrected hospital closures by name and report the first 10 rows.  
+```{python}
+# Sort and report the first 10 rows of the corrected list
+corrected_closures.sort_values(by="FAC_NAME")[["FAC_NAME", "ZIP_CD", "TRMNTN_YR"]].head(10)
+```
 
 ## Download Census zip code shapefile (10 pt) 
 
