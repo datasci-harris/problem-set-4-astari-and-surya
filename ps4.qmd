@@ -43,14 +43,191 @@ Please refer to the minilesson on code style
 
 ## Download and explore the Provider of Services (POS) file (10 pts)
 
-1. 
+1. List of variables pulled from the dataset:
+
+1. PRVDR_CTGRY_SBTYP_CD = Identifies the subtype of the provider, within the primary category. Used in reporting to show the breakdown of provider categories, mainly for hospitals and SNFs. Code 01 Indicates it is a short term hospital. 
+
+2. PRVDR_CTGRY_CD = Identifies the type of provider participating in the Medicare/Medicaid Program. Code 01 is for Hospital.
+
+3. FAC_NAME = Name of the provider certified to participate in the Medicare and/or Medicaid programs.
+
+4. PRVDR_NUM = Six or ten position identification number that is assigned to a certified provider. This is CMS Certification Number.
+
+5. STATE_CD = Two-character state abbreviation.
+
+6. PGM_TRMNTN_CD = Indicates the current termination status for the provider. Code 00 means that it is an active provider. Code 07 means other - provider status change, which indicates to a changes like a shift in provider ownership, significant operational restructuring, or a reclassification that does not imply the provider ceases to operate. 
+
+7. ZIP_CD = Five-digit ZIP code for a provider's physical address. 
+
 2. 
-    a.
-    b.
+a.
+```{python}
+import pandas as pd
+
+# Load the dataset
+path_2016 = 'C:/Users/raiha/Documents/GitHub/problem-set-4-astari-and-surya/pos2016.csv'
+data_2016 = pd.read_csv(path_2016, encoding='ISO-8859-1')
+```
+
+```{python}
+# Filter the dataset
+filtered_2016 = data_2016[
+    (data_2016['PRVDR_CTGRY_SBTYP_CD'] == 1) & 
+    (data_2016['PRVDR_CTGRY_CD'] == 1)
+]
+
+# Display the filtered data
+print(filtered_2016.head()) 
+
+# Print the total number of records
+print(f"\nTotal number of records: {len(filtered_2016)}")
+
+```
+
+Interpretation: Based on the CMS Dataset from Provider Category Subtype Code = 1 (short term hospital), Provider Category Code = 1 (hospital), and Provider Termination Code = 0 (Currently active), we found that there are 3,423 number of hospital in the US. This number is still reasonable given the total number of hospitals other data sources. 
+
+    b. Based on the American Hospital Association (AHA) Hospital Annual Survey in 2016, the number of the US Community Hospitals are 4,840 hospitals likely stems from differences in definitions, scope, and data collection methods. The AHA report focuses on community hospitals—nonfederal, short-term general, and special hospitals—excluding federal facilities like VA hospitals and specialized ones such as prison or military hospitals. In contrast, the CMS dataset includes all Medicare-certified hospitals, potentially covering a broader range of facilities, including those not counted as community hospitals. Additionally, the CMS data might include inactive or reclassified hospitals and uses certification data, while the AHA relies on survey responses, which could result in underreporting or different inclusion criteria.
 3. 
+2017Q4 data
+```{python}
+# Load the 2017Q4 data
+path_2017 = 'C:/Users/raiha/Documents/GitHub/problem-set-4-astari-and-surya/pos2017.csv'
+data_2017 = pd.read_csv(path_2017, encoding='ISO-8859-1')
+
+# Filter the dataset
+filtered_2017 = data_2017[
+    (data_2017['PRVDR_CTGRY_SBTYP_CD'] == 1) & 
+    (data_2017['PRVDR_CTGRY_CD'] == 1)
+]
+
+# Display the filtered data
+print(filtered_2017.head()) 
+
+# Print the total number of records
+print(f"\nTotal number of records: {len(filtered_2017)}")
+```
+
+2018Q4 data
+```{python}
+# Load the 2018 data with a specified encoding
+path_2018 = 'C:/Users/raiha/Documents/GitHub/problem-set-4-astari-and-surya/pos2018.csv'
+data_2018 = pd.read_csv(path_2018, encoding='ISO-8859-1')
+
+# Filter the dataset
+filtered_2018 = data_2018[
+    (data_2018['PRVDR_CTGRY_SBTYP_CD'] == 1) & 
+    (data_2018['PRVDR_CTGRY_CD'] == 1)
+]
+
+# Display the filtered data
+print(filtered_2018.head()) 
+
+# Print the total number of records
+print(f"\nTotal number of records: {len(filtered_2018)}")
+
+```
+
+2019Q4 data
+```{python}
+# Load the 2019 data
+path_2019 = 'C:/Users/raiha/Documents/GitHub/problem-set-4-astari-and-surya/pos2019.csv'
+data_2019 = pd.read_csv(path_2019, encoding='ISO-8859-1')
+
+# Filter the dataset
+filtered_2019 = data_2019[
+    (data_2019['PRVDR_CTGRY_SBTYP_CD'] == 1) & 
+    (data_2019['PRVDR_CTGRY_CD'] == 1)
+]
+
+# Display the filtered data
+print(filtered_2019.head()) 
+
+# Print the total number of records
+print(f"\nTotal number of records: {len(filtered_2019)}")
+
+```
+
+```{python}
+import altair as alt
+
+# Create a DataFrame with the number of records for each year
+data = pd.DataFrame({
+    'Year': ['2016Q4', '2017Q4', '2018Q4', '2019Q4'],
+    'Number of Records': [7245, 7260, 7277, 7303]
+})
+
+# Create the Altair bar chart with increased spacing between the bars
+chart = alt.Chart(data).mark_bar(size=30).encode( 
+    x=alt.X('Year', title='Year', axis=alt.Axis(labelAngle=0), scale=alt.Scale(padding=0.4)),  # Adjust padding
+    y=alt.Y('Number of Records', title='Number of Observations'),
+    color='Year'
+).properties(
+    title='Number of Observations by Year (Q4)',
+    width=300
+)  
+
+# Add text labels to the chart
+text = chart.mark_text(
+    align='center',
+    baseline='bottom',
+    dy=-5  # Move text above the bar
+).encode(
+    text='Number of Records:Q'
+)
+
+# Combine the bar chart and the text labels
+final_chart = chart + text
+
+# Display the chart
+final_chart.show()
+```
+
 4. 
     a.
-    b.
+
+```{python}
+# Extract the number of unique hospitals (by CMS certification number)
+unique_counts_filtered = {
+    '2016Q4': filtered_2016['PRVDR_NUM'].nunique(),
+    '2017Q4': filtered_2017['PRVDR_NUM'].nunique(),
+    '2018Q4': filtered_2018['PRVDR_NUM'].nunique(),
+    '2019Q4': filtered_2019['PRVDR_NUM'].nunique()
+}
+
+# Create a DataFrame for plotting
+unique_counts_df_filtered = pd.DataFrame({
+    'Year': list(unique_counts_filtered.keys()),
+    'Number of Unique Hospitals': list(unique_counts_filtered.values())
+})
+
+# Plot the number of unique hospitals per year after filtering
+chart_filtered = alt.Chart(unique_counts_df_filtered).mark_bar(size=30).encode(
+    x=alt.X('Year', title='Year', axis=alt.Axis(labelAngle=0)),
+    y=alt.Y('Number of Unique Hospitals', title='Number of Unique Observations'),
+    color='Year'
+).properties(
+    title='Number of Unique Short-Term Hospitals by Year (Q4)',
+    width = 300
+)
+
+# Add text labels to the chart
+text_filtered = chart_filtered.mark_text(
+    align='center',
+    baseline='bottom',
+    dy=-5  # Move text above the bar
+).encode(
+    text='Number of Unique Hospitals:Q'
+)
+
+# Combine the bar chart and the text labels
+unique_cms_chart = chart_filtered + text_filtered
+
+# Display the chart
+unique_cms_chart.show()
+```
+
+    b. The fact that each hospital (PRVDR_NUM) appears only once per year in the dataset indicates that the data is well-structured, with no duplicate records for the same hospital. This consistency simplifies analyses, as there is no need to deduplicate when counting short-term hospitals. The identical plots for total observations and unique hospitals confirm that the filtered data accurately reflects the distinct count of short-term hospitals for each year. Overall, this means there are no overlaps or repeated entries in the dataset, ensuring reliable and straightforward comparisons year over year.
+
 
 ## Identify hospital closures in POS file (15 pts) (*)
 
@@ -64,9 +241,12 @@ Please refer to the minilesson on code style
 ## Download Census zip code shapefile (10 pt) 
 
 1. 
-    a.
+    a. 
+
+
     b. 
 2. 
+
 
 ## Calculate zip code’s distance to the nearest hospital (20 pts) (*)
 
